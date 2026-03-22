@@ -316,12 +316,6 @@ html,body,.stApp{{
 }}
 #MainMenu,footer,header{{visibility:hidden;}}
 .stDeployButton{{display:none;}}
-section[data-testid="stSidebar"]{{
-    width:280px !important;
-    min-width:280px !important;
-    max-width:280px !important;
-}}
-button[data-testid="collapsedControl"]{{display:none !important;}}
 .block-container{{padding:0 2rem 4rem !important;max-width:1700px !important;}}
 ::-webkit-scrollbar{{width:5px;}}
 ::-webkit-scrollbar-track{{background:var(--bg);}}
@@ -794,7 +788,7 @@ inject_css()
 def show_login():
     st.markdown("""
     <style>
-    [data-testid="stSidebar"]{display:none !important;}
+    [data-testid="stSidebar"]{visibility:hidden;width:0px !important;min-width:0px !important;}
     </style>
     """, unsafe_allow_html=True)
 
