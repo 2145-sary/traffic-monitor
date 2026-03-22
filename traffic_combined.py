@@ -786,11 +786,7 @@ inject_css()
 # ════════════════════════════════════════════════════════════════════
 
 def show_login():
-    st.markdown("""
-    <style>
-    [data-testid="stSidebar"]{visibility:hidden;width:0px !important;min-width:0px !important;}
-    </style>
-    """, unsafe_allow_html=True)
+    # No sidebar CSS - just show login content
 
     # Header
     st.markdown("""
@@ -898,9 +894,14 @@ if not st.session_state.logged_in:
 # Force sidebar visible after login
 st.markdown("""
 <style>
-[data-testid="stSidebar"] { display: block !important; }
-[data-testid="collapsedControl"] { display: block !important; }
-section[data-testid="stSidebar"] { width: 300px !important; }
+section[data-testid="stSidebar"] {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 21rem !important;
+    min-width: 21rem !important;
+    transform: none !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
