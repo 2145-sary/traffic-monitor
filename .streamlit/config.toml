@@ -1,3 +1,6 @@
+[ui]
+hideSidebarNav = false
+
 [server]
 maxUploadSize = 200
 
