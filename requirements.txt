@@ -1,7 +1,7 @@
-ultralytics
-streamlit
-opencv-python-headless==4.10.0.84
-pillow
-pandas
-paho-mqtt
-numpy
+ultralytics==8.3.0
+streamlit==1.32.0
+opencv-python-headless==4.8.1.78
+pillow==10.2.0
+pandas==2.2.0
+paho-mqtt==1.6.1
+numpy==1.26.4
