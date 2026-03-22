@@ -316,8 +316,12 @@ html,body,.stApp{{
 }}
 #MainMenu,footer,header{{visibility:hidden;}}
 .stDeployButton{{display:none;}}
-[data-testid="stSidebar"]{{display:block !important;min-width:250px !important;}}
-[data-testid="collapsedControl"]{{display:none !important;}}
+section[data-testid="stSidebar"]{{
+    width:280px !important;
+    min-width:280px !important;
+    max-width:280px !important;
+}}
+button[data-testid="collapsedControl"]{{display:none !important;}}
 .block-container{{padding:0 2rem 4rem !important;max-width:1700px !important;}}
 ::-webkit-scrollbar{{width:5px;}}
 ::-webkit-scrollbar-track{{background:var(--bg);}}
