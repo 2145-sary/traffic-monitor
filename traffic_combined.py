@@ -315,9 +315,9 @@ html,body,.stApp{{
     font-family:var(--fb) !important;
 }}
 #MainMenu,footer,header{{visibility:hidden;}}
-[data-testid="stSidebar"] { display: block !important; }
-[data-testid="collapsedControl"] { display: none !important; }
 .stDeployButton{{display:none;}}
+[data-testid="stSidebar"]{{display:block !important;min-width:250px !important;}}
+[data-testid="collapsedControl"]{{display:none !important;}}
 .block-container{{padding:0 2rem 4rem !important;max-width:1700px !important;}}
 ::-webkit-scrollbar{{width:5px;}}
 ::-webkit-scrollbar-track{{background:var(--bg);}}
@@ -896,6 +896,15 @@ def show_login():
 if not st.session_state.logged_in:
     show_login()
     st.stop()
+
+# Force sidebar visible after login
+st.markdown("""
+<style>
+[data-testid="stSidebar"] { display: block !important; }
+[data-testid="collapsedControl"] { display: block !important; }
+section[data-testid="stSidebar"] { width: 300px !important; }
+</style>
+""", unsafe_allow_html=True)
 
 
 # ════════════════════════════════════════════════════════════════════
