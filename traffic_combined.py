@@ -315,6 +315,8 @@ html,body,.stApp{{
     font-family:var(--fb) !important;
 }}
 #MainMenu,footer,header{{visibility:hidden;}}
+[data-testid="stSidebar"] { display: block !important; }
+[data-testid="collapsedControl"] { display: none !important; }
 .stDeployButton{{display:none;}}
 .block-container{{padding:0 2rem 4rem !important;max-width:1700px !important;}}
 ::-webkit-scrollbar{{width:5px;}}
