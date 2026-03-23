@@ -986,7 +986,35 @@ with st.sidebar:
 
     elif input_mode == "📸 Camera Capture":
         st.info("📱 Works on phone + deployed!\nPoint camera at traffic and capture.")
-        camera_photo = st.camera_input("Take a photo")
+        # Force back camera on mobile via JS
+        st.markdown("""
+        <script>
+        function switchToBackCamera() {
+            const videos = document.querySelectorAll('video');
+            videos.forEach(video => {
+                if (video.srcObject) {
+                    video.srcObject.getTracks().forEach(track => track.stop());
+                }
+            });
+            navigator.mediaDevices.getUserMedia({
+                video: { facingMode: { exact: "environment" } }
+            }).then(stream => {
+                const videos = document.querySelectorAll('video');
+                videos.forEach(video => { video.srcObject = stream; });
+            }).catch(err => {
+                navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: "environment" }
+                }).then(stream => {
+                    const videos = document.querySelectorAll('video');
+                    videos.forEach(video => { video.srcObject = stream; });
+                });
+            });
+        }
+        setTimeout(switchToBackCamera, 1000);
+        setTimeout(switchToBackCamera, 2500);
+        </script>
+        """, unsafe_allow_html=True)
+        camera_photo = st.camera_input("📷 Take photo — back camera (traffic)", help="Points to rear camera on phone")
         video_ready = camera_photo is not None
 
     st.markdown('<div class="sb-sec">Detection</div>', unsafe_allow_html=True)
