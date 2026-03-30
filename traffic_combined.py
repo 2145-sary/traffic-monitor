@@ -209,6 +209,18 @@ def detect_4way(frame, conf=0.4):
         vtypes[label] += 1
 
         # Determine quadrant
+        if cy < mh and cx < mw:       zone = "N"  # top-left → North
+        elif cy < mh and cx >= mw:    zone = "N"  # top-right → North
+        elif cy >= mh and cx < mw:    zone = "S"  # bottom-left → South
+        else:                          zone = "S"  # bottom-right → South
+
+        # Refine left/right for East/West
+        if cx < mw:  zone_lr = "W"
+        else:         zone_lr = "E"
+
+        # Use horizontal split for E/W, vertical for N/S
+        # Blend: if cx is strongly left/right, use E/W
+        # Use center strip as pure N/S
         strip = w // 6
         if cx < strip or cx > w - strip:
             # Clear left/right → definitely E or W
@@ -312,10 +324,10 @@ DENSITY_NUM = {"Low": 1, "Medium": 2, "High": 3}
 # PART 6 — PREMIUM UI CSS (FIXED SIDEBAR + SEMI-3D DESIGN)
 # ════════════════════════════════════════════════════════════════════
 
-# ⚠️ FIX: Only hide sidebar on login page, not after login
-SIDEBAR_CSS = """
+# ⚠️ SIDEBAR FIX: Force sidebar to be visible after login
+SIDEBAR_FORCE_VISIBLE = """
 <style>
-/* Force sidebar visibility when logged in */
+/* CRITICAL: Override any hiding CSS from login page */
 section[data-testid="stSidebar"] {
     display: flex !important;
     visibility: visible !important;
@@ -328,16 +340,27 @@ section[data-testid="stSidebar"] {
     box-shadow: 4px 0 24px rgba(15, 14, 11, 0.08) !important;
     z-index: 999999 !important;
     position: relative !important;
+    pointer-events: all !important;
 }
 
-/* Override any hidden states */
+/* Force all child elements to be visible */
 section[data-testid="stSidebar"] > div {
     display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+section[data-testid="stSidebar"] * {
     visibility: visible !important;
 }
 
 [data-testid="stSidebar"] .block-container {
     padding: 1.8rem 1.4rem !important;
+}
+
+/* Ensure sidebar content is fully rendered */
+[data-testid="stSidebar"][aria-expanded="true"] {
+    transform: translateX(0) !important;
 }
 </style>
 """
@@ -1595,6 +1618,7 @@ html, body, .stApp {
 
 def show_login():
     # ⚠️ FIX: Hide sidebar ONLY on login page
+    # This CSS is ONLY injected when user is NOT logged in
     st.markdown("""
     <style>
     section[data-testid="stSidebar"]{
@@ -1658,8 +1682,9 @@ if not st.session_state.logged_in:
     show_login()
     st.stop()
 
-# ⚠️ FIX: After login, explicitly show sidebar
-st.markdown(SIDEBAR_CSS, unsafe_allow_html=True)
+# ⚠️ CRITICAL FIX: After login, force sidebar to be visible
+# This overrides the hiding CSS from the login page
+st.markdown(SIDEBAR_FORCE_VISIBLE, unsafe_allow_html=True)
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -1706,7 +1731,7 @@ active = st.session_state.active_tab
 
 
 # ════════════════════════════════════════════════════════════════════
-# PART 10 — SIDEBAR
+# PART 10 — SIDEBAR (ALREADY VISIBLE - NO CHANGES NEEDED)
 # ════════════════════════════════════════════════════════════════════
 
 with st.sidebar:
