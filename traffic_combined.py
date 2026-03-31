@@ -2795,5 +2795,3 @@ st.markdown(\"\"\"
     </div>
 </div>
 \"\"\", unsafe_allow_html=True)
-"
-Observation: Create successful: /app/combined.py
