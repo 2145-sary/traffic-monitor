@@ -1,4 +1,3 @@
-
 "\"\"\"
 IoT-Based Intelligent Traffic Monitoring & Congestion Prediction System
 K.R. Mangalam University | Department of Computer Science & Engineering
