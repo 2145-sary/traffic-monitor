@@ -126,20 +126,24 @@ def load_yolo():
     return _model
 
 def get_density(count):
-    if count <= 4:    return "Low"
-    elif count <= 10: return "Medium"
+    if count <= 3:    return "Low"
+    elif count <= 8:  return "Medium"
     else:             return "High"
 
 def get_overall_density(total):
-    if total <= 6:    return "Low"
-    elif total <= 18: return "Medium"
+    if total <= 5:    return "Low"
+    elif count <= 15: return "Medium"  if (count := total) else "Low"
+    else:             return "High"
+
+def get_overall_den(total):
+    if total <= 5:    return "Low"
+    elif total <= 15: return "Medium"
     else:             return "High"
 
 def get_pair_score(c1, c2):
-    """Combined congestion score for a signal pair"""
     total = c1 + c2
-    if total <= 6:    den = "Low"
-    elif total <= 18: den = "Medium"
+    if total <= 5:    den = "Low"
+    elif total <= 15: den = "Medium"
     else:             den = "High"
     base = {"Low": 10, "Medium": 45, "High": 78}
     return base[den] + min(total * 1.5, 22), den
@@ -151,7 +155,7 @@ def detect_4way(frame, conf=0.4):
     """
     4-way intersection detection.
     Frame divided into 4 quadrants:
-      Top-half    = North (vehicles coming from north)
+      Top-half    = North
       Bottom-half = South
       Left-half   = West
       Right-half  = East
@@ -159,6 +163,8 @@ def detect_4way(frame, conf=0.4):
     Signal pairs:
       Pair A: North + South  (run together)
       Pair B: East  + West   (run together)
+
+    Returns PER-FRAME counts (not cumulative).
     """
     mdl  = load_yolo()
     h, w = frame.shape[:2]
@@ -167,24 +173,25 @@ def detect_4way(frame, conf=0.4):
 
     ann  = frame.copy()
 
-    # Draw intersection lines
-    cv2.line(ann, (0, mh), (w, mh), (255, 255, 255), 2)
-    cv2.line(ann, (mw, 0), (mw, h), (255, 255, 255), 2)
+    # Draw dividing lines
+    cv2.line(ann, (0, mh), (w, mh), (220, 220, 220), 1)
+    cv2.line(ann, (mw, 0), (mw, h), (220, 220, 220), 1)
 
-    # Direction labels with background boxes
-    zones = [
-        (mw//2 - 60, 10,    "NORTH", (0, 180, 255)),
-        (mw//2 - 60, mh+10, "SOUTH", (0, 220, 150)),
-        (10,         mh//2, "WEST",  (255, 160, 0)),
-        (mw+10,      mh//2, "EAST",  (220, 80,  255)),
+    # Direction labels — smaller, less intrusive
+    zone_labels = [
+        (mw//2 - 45, 8,     "N", (0, 180, 255)),
+        (mw//2 - 45, mh+8,  "S", (0, 220, 150)),
+        (8,          mh//2, "W", (255, 160, 0)),
+        (mw+8,       mh//2, "E", (220, 80,  255)),
     ]
-    for lx, ly, label, color in zones:
-        cv2.rectangle(ann, (lx-4, ly-4), (lx+100, ly+28), (0,0,0), -1)
-        cv2.putText(ann, label, (lx, ly+20),
-                    cv2.FONT_HERSHEY_DUPLEX, 0.7, color, 2)
+    for lx, ly, label, color in zone_labels:
+        cv2.rectangle(ann, (lx-3, ly-3), (lx+28, ly+22), (0,0,0,180), -1)
+        cv2.putText(ann, label, (lx, ly+16),
+                    cv2.FONT_HERSHEY_DUPLEX, 0.6, color, 2)
 
     results = mdl(frame, conf=conf, verbose=False)[0]
 
+    # Per-frame counts (reset each call)
     nc = sc = ec = wc = 0
     conf_scores = []
     vtypes = {"Car": 0, "Motorcycle": 0, "Bus": 0, "Truck": 0}
@@ -208,53 +215,56 @@ def detect_4way(frame, conf=0.4):
         conf_scores.append(cs)
         vtypes[label] += 1
 
-        # Determine quadrant
-        if cy < mh and cx < mw:       zone = "N"  # top-left → North
-        elif cy < mh and cx >= mw:    zone = "N"  # top-right → North
-        elif cy >= mh and cx < mw:    zone = "S"  # bottom-left → South
-        else:                          zone = "S"  # bottom-right → South
+        # Smart zone assignment:
+        # Use the DOMINANT axis to decide N/S vs E/W
+        # If vehicle is more towards corners → use diagonal
+        # Edge strip (outer 20%) = definitely E or W
+        # Top/Bottom strip (outer 20%) = definitely N or S
+        # Middle area → use closest axis
 
-        # Refine left/right for East/West
-        if cx < mw:  zone_lr = "W"
-        else:         zone_lr = "E"
+        h_strip = int(h * 0.20)  # top/bottom 20%
+        w_strip = int(w * 0.20)  # left/right 20%
 
-        # Use horizontal split for E/W, vertical for N/S
-        # Blend: if cx is strongly left/right, use E/W
-        # Use center strip as pure N/S
-        strip = w // 6
-        if cx < strip or cx > w - strip:
-            # Clear left/right → definitely E or W
-            if cx < mw: zone = "W"; wc += 1
-            else:        zone = "E"; ec += 1
+        if cy < h_strip:
+            zone = "N"; nc += 1
+        elif cy > h - h_strip:
+            zone = "S"; sc += 1
+        elif cx < w_strip:
+            zone = "W"; wc += 1
+        elif cx > w - w_strip:
+            zone = "E"; ec += 1
         else:
-            # Center area → North or South based on vertical
-            if cy < mh:  zone = "N"; nc += 1
-            else:         zone = "S"; sc += 1
+            # Middle area — use quadrant
+            if cy < mh:
+                zone = "N"; nc += 1
+            else:
+                zone = "S"; sc += 1
 
         color = ZONE_COLORS[zone]
         cv2.rectangle(ann, (x1, y1), (x2, y2), color, 2)
         ltext = f"{label} {cs:.0%}"
-        (tw, th), _ = cv2.getTextSize(ltext, cv2.FONT_HERSHEY_SIMPLEX, 0.44, 1)
-        cv2.rectangle(ann, (x1, y1-th-8), (x1+tw+4, y1), color, -1)
-        cv2.putText(ann, ltext, (x1+2, y1-5),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.44, (0, 0, 0), 1)
+        (tw, th), _ = cv2.getTextSize(ltext, cv2.FONT_HERSHEY_SIMPLEX, 0.42, 1)
+        cv2.rectangle(ann, (x1, y1-th-6), (x1+tw+4, y1), color, -1)
+        cv2.putText(ann, ltext, (x1+2, y1-4),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.42, (0, 0, 0), 1)
 
+    # Per-frame total (not cumulative)
     total    = nc + sc + ec + wc
     avg_conf = round(sum(conf_scores)/len(conf_scores)*100, 1) if conf_scores else 0.0
 
-    # Signal pair decision
+    # Signal pair decision based on current frame
     ns_score, ns_den = get_pair_score(nc, sc)
     ew_score, ew_den = get_pair_score(ec, wc)
 
     if ns_score >= ew_score:
-        green_pair = "NS"   # North-South gets GREEN
+        green_pair = "NS"
         green_den  = ns_den
     else:
-        green_pair = "EW"   # East-West gets GREEN
+        green_pair = "EW"
         green_den  = ew_den
 
-    duration       = get_timer(green_den)
-    overall_den    = get_overall_density(total)
+    duration    = get_timer(green_den)
+    overall_den = get_overall_den(total)
 
     return (ann, nc, sc, ec, wc, total,
             green_pair, green_den, duration,
@@ -511,18 +521,18 @@ html, body, .stApp {
 
 /* ── 3D INTERSECTION MAP ── */
 .intersection-map {
-    display:grid;grid-template-columns:1fr 90px 1fr;grid-template-rows:1fr 90px 1fr;
-    gap:6px;margin-bottom:18px;height:260px;perspective:1000px;
+    display:grid;grid-template-columns:1fr 70px 1fr;grid-template-rows:1fr 70px 1fr;
+    gap:5px;margin-bottom:18px;height:300px;
 }
 .int-cell {
     background:var(--glass-bg);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
     border:1px solid var(--glass-border);border-radius:var(--r-md);
     display:flex;flex-direction:column;align-items:center;justify-content:center;
-    padding:12px 6px;position:relative;
+    padding:8px 4px 28px 4px;position:relative;
     transition:all 0.4s cubic-bezier(0.4,0,0.2,1);
-    box-shadow:var(--shadow-subtle);transform-style:preserve-3d;
+    box-shadow:var(--shadow-subtle);
 }
-.int-cell:hover { transform:translateY(-6px) rotateX(5deg);box-shadow:var(--shadow-float); }
+.int-cell:hover { transform:translateY(-4px);box-shadow:var(--shadow-float); }
 .int-cell.active {
     background:linear-gradient(135deg,rgba(27,158,84,0.15),rgba(34,135,63,0.1));
     border-color:var(--green);
@@ -544,7 +554,7 @@ html, body, .stApp {
 .int-den.Low   { color:var(--green);background:rgba(27,158,84,0.1); }
 .int-den.Medium{ color:var(--amber);background:rgba(229,167,32,0.1); }
 .int-den.High  { color:var(--red);background:rgba(200,40,30,0.1); }
-.int-signal { position:absolute;bottom:8px;font-size:.72rem;font-weight:700;font-family:var(--fc);letter-spacing:.08em;padding:2px 8px;border-radius:var(--r-sm); }
+.int-signal { margin-top:6px;font-size:.72rem;font-weight:700;font-family:var(--fc);letter-spacing:.08em;padding:3px 10px;border-radius:var(--r-sm);display:inline-block; }
 .int-signal.green { color:#fff;background:var(--green);box-shadow:0 0 12px rgba(27,158,84,.4); }
 .int-signal.red   { color:#fff;background:var(--red);box-shadow:0 0 12px rgba(200,40,30,.4); }
 .int-signal.amber { color:var(--ink);background:var(--amber);box-shadow:0 0 12px rgba(229,167,32,.4); }
@@ -1125,32 +1135,45 @@ if active == "🎯  Live Monitor":
         dur   = st.session_state.sig_duration
 
         if phase == "YELLOW":
-            v_cls = "amber"
-            v_txt = "YELLOW"
-            dirs  = "↕ N·S &nbsp;·&nbsp; ↔ E·W"
-            msg   = "Signal changing — prepare to stop"
-            icon  = "🟡"
+            v_cls  = "amber"
+            v_txt  = "YELLOW"
+            dirs   = "All directions — slow down"
+            msg    = "Signal switching · Prepare to stop"
+            go_txt = ""
+            st_txt = ""
         elif gp == "NS":
-            v_cls = "green"
-            v_txt = "GREEN"
-            dirs  = "↕ NORTH · SOUTH"
-            msg   = "North–South corridor open · East–West waiting"
-            icon  = "🟢"
+            v_cls  = "green"
+            v_txt  = "GREEN"
+            dirs   = "↕ North–South: GO"
+            msg    = "↔ East–West: STOP and wait"
+            go_txt = "🟢 ↑↓ North–South — GO"
+            st_txt = "🔴 ←→ East–West — STOP"
         else:
-            v_cls = "green"
-            v_txt = "GREEN"
-            dirs  = "↔ EAST · WEST"
-            msg   = "East–West corridor open · North–South waiting"
-            icon  = "🟢"
+            v_cls  = "green"
+            v_txt  = "GREEN"
+            dirs   = "↔ East–West: GO"
+            msg    = "↕ North–South: STOP and wait"
+            go_txt = "🟢 ←→ East–West — GO"
+            st_txt = "🔴 ↑↓ North–South — STOP"
 
         pct = (rem / max(dur, 1)) * 100
+        go_stop_html = f"""
+            <div style="margin-bottom:12px;display:flex;flex-direction:column;gap:6px;">
+                <div style="background:rgba(27,158,84,0.12);border:1px solid rgba(27,158,84,0.3);
+                            border-radius:8px;padding:8px 12px;font-family:var(--fc);
+                            font-size:.82rem;font-weight:700;color:#1b9e54;letter-spacing:.05em;">{go_txt}</div>
+                <div style="background:rgba(200,40,30,0.08);border:1px solid rgba(200,40,30,0.2);
+                            border-radius:8px;padding:8px 12px;font-family:var(--fc);
+                            font-size:.82rem;font-weight:700;color:#c8281e;letter-spacing:.05em;">{st_txt}</div>
+            </div>""" if go_txt else ""
 
         verdict_ph.markdown(f"""
         <div class="signal-board {v_cls}">
-            <div class="signal-pair-label">Active Signal Pair</div>
+            <div class="signal-pair-label">Active Signal Verdict</div>
             <div class="signal-verdict-text {v_cls}">{v_txt}</div>
             <div class="signal-pair-dirs">{dirs}</div>
             <div class="signal-msg">{msg}</div>
+            {go_stop_html}
             <div class="timer-display">
                 <div class="timer-big">{rem:02d}</div>
                 <div class="timer-unit">sec</div>
@@ -1169,11 +1192,11 @@ if active == "🎯  Live Monitor":
 
         def sig_label(direction):
             if phase == "YELLOW":
-                return '<span class="int-signal amber">●YLW</span>'
+                return '<div class="int-signal amber">🟡 SLOW</div>'
             if (direction in ["N","S"] and gp == "NS") or \
                (direction in ["E","W"] and gp == "EW"):
-                return '<span class="int-signal green">●GRN</span>'
-            return '<span class="int-signal red">●RED</span>'
+                return '<div class="int-signal green">🟢 GO</div>'
+            return '<div class="int-signal red">🔴 STOP</div>'
 
         def active_cls(direction):
             if phase == "YELLOW": return "yellow-phase"
@@ -1182,17 +1205,20 @@ if active == "🎯  Live Monitor":
                 return "active"
             return "waiting"
 
+        # Labels: use direction arrows + lane names
+        # NS pair = vehicles going up/down
+        # EW pair = vehicles going left/right
         map_ph.markdown(f"""
-        <div class="intersection-map">
+        <div class="intersection-map" style="height:300px;">
             <div class="int-cell {active_cls('N')}">
-                <div class="int-dir">North</div>
+                <div class="int-dir">↓ NORTH</div>
                 <div class="int-count">{nc}</div>
                 <div class="int-den {nd}">{nd}</div>
                 {sig_label('N')}
             </div>
             <div class="int-road-v"></div>
-            <div class="int-cell {active_cls('N')}">
-                <div class="int-dir">North ↓</div>
+            <div class="int-cell {active_cls('N')}" style="opacity:.7;">
+                <div class="int-dir">↑ NORTH</div>
                 <div class="int-count">{nc}</div>
                 <div class="int-den {nd}">{nd}</div>
             </div>
@@ -1200,26 +1226,26 @@ if active == "🎯  Live Monitor":
             <div class="int-center">🚦</div>
             <div class="int-road-h"></div>
             <div class="int-cell {active_cls('W')}">
-                <div class="int-dir">West</div>
+                <div class="int-dir">→ WEST</div>
                 <div class="int-count">{wc}</div>
                 <div class="int-den {wd}">{wd}</div>
                 {sig_label('W')}
             </div>
             <div class="int-road-v"></div>
             <div class="int-cell {active_cls('E')}">
-                <div class="int-dir">East</div>
+                <div class="int-dir">← EAST</div>
                 <div class="int-count">{ec}</div>
                 <div class="int-den {ed}">{ed}</div>
                 {sig_label('E')}
             </div>
-            <div class="int-cell {active_cls('S')}">
-                <div class="int-dir">South ↑</div>
+            <div class="int-cell {active_cls('S')}" style="opacity:.7;">
+                <div class="int-dir">↑ SOUTH</div>
                 <div class="int-count">{sc}</div>
                 <div class="int-den {sd}">{sd}</div>
             </div>
             <div class="int-road-v"></div>
             <div class="int-cell {active_cls('S')}">
-                <div class="int-dir">South</div>
+                <div class="int-dir">↓ SOUTH</div>
                 <div class="int-count">{sc}</div>
                 <div class="int-den {sd}">{sd}</div>
                 {sig_label('S')}
@@ -1241,27 +1267,28 @@ if active == "🎯  Live Monitor":
         vtype_ph.markdown(html, unsafe_allow_html=True)
 
     def render_stats(nc, sc, ec, wc, total, den):
+        den_color = {"Low":"#1b9e54","Medium":"#e5a720","High":"#c8281e"}
         stats_ph.markdown(f"""
         <div class="stat-row">
             <div class="stat-cell">
-                <div class="stat-num">{total}</div>
-                <div class="stat-lbl">Total Vehicles</div>
+                <div class="stat-num" style="color:{den_color[den]}">{total}</div>
+                <div class="stat-lbl">This Frame</div>
             </div>
             <div class="stat-cell">
                 <div class="stat-num">{nc}</div>
-                <div class="stat-lbl">North</div>
+                <div class="stat-lbl">↓ North</div>
             </div>
             <div class="stat-cell">
                 <div class="stat-num">{sc}</div>
-                <div class="stat-lbl">South</div>
+                <div class="stat-lbl">↑ South</div>
             </div>
             <div class="stat-cell">
                 <div class="stat-num">{ec}</div>
-                <div class="stat-lbl">East</div>
+                <div class="stat-lbl">← East</div>
             </div>
             <div class="stat-cell">
                 <div class="stat-num">{wc}</div>
-                <div class="stat-lbl">West</div>
+                <div class="stat-lbl">→ West</div>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -1316,14 +1343,22 @@ if active == "🎯  Live Monitor":
             st.stop()
 
         fn = 0
+        loop_count = 0
         try:
             while st.session_state.running:
+                # Skip frames for speed
                 for _ in range(skip_frames - 1):
                     cap.read()
                 ret, frame = cap.read()
                 if not ret:
+                    loop_count += 1
+                    if loop_count >= 2:
+                        st.session_state.running = False
+                        st.session_state.show_summary = True
+                        break
                     cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
                     continue
+
                 fn += 1
                 st.session_state.total_frames += 1
                 frame = cv2.resize(frame, (960, 540))
@@ -1332,29 +1367,31 @@ if active == "🎯  Live Monitor":
                  gp, gden, dur, oden,
                  avg_conf, vtypes) = detect_4way(frame, conf_val)
 
-                # Save state
-                st.session_state.last_nc = nc
-                st.session_state.last_sc = sc
-                st.session_state.last_ec = ec
-                st.session_state.last_wc = wc
-                st.session_state.last_total = total
-                st.session_state.last_gp    = gp
-                st.session_state.last_den   = oden
-                st.session_state.last_dur   = dur
-                st.session_state.last_conf  = avg_conf
+                # Save current frame state (per-frame, not cumulative)
+                st.session_state.last_nc     = nc
+                st.session_state.last_sc     = sc
+                st.session_state.last_ec     = ec
+                st.session_state.last_wc     = wc
+                st.session_state.last_total  = total
+                st.session_state.last_gp     = gp
+                st.session_state.last_den    = oden
+                st.session_state.last_dur    = dur
+                st.session_state.last_conf   = avg_conf
                 st.session_state.last_vtypes = vtypes
                 st.session_state.last_frame  = ann.copy()
-                st.session_state.session_vehicles += total
+
+                # session_vehicles = max seen in any frame (not sum)
+                st.session_state.session_vehicles = max(
+                    st.session_state.session_vehicles, total)
                 if oden == "High":
                     st.session_state.session_high += 1
 
                 st.session_state.total_hist.append(total)
                 st.session_state.den_hist.append(oden)
 
-                # Update timer
                 update_timer(gp, dur)
 
-                # Render
+                # Render — use frame_ph to avoid Streamlit rerun flicker
                 frame_ph.image(cv2.cvtColor(ann, cv2.COLOR_BGR2RGB),
                                channels="RGB", use_container_width=True)
                 if snap_btn and st.session_state.last_frame is not None:
@@ -1373,7 +1410,9 @@ if active == "🎯  Live Monitor":
                 if fn % pub_every == 0:
                     publish_iot(nc, sc, ec, wc, total, gp,
                                 st.session_state.sig_phase, dur, oden)
-                time.sleep(0.03)
+
+                # Frame pacing — balance smoothness vs CPU
+                time.sleep(0.02)
         finally:
             cap.release()
 
