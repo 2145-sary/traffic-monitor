@@ -1,4 +1,4 @@
-"\"\"\"
+"""
 IoT-Based Intelligent Traffic Monitoring & Congestion Prediction System
 K.R. Mangalam University | Department of Computer Science & Engineering
 Developer: Sarthak Mishra | Roll No: 2301010232 | B.Tech CSE | 2025-26
