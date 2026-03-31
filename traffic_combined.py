@@ -528,15 +528,13 @@ html, body, .stApp {
     background:var(--glass-bg);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
     border:1px solid var(--glass-border);border-radius:var(--r-md);
     display:flex;flex-direction:column;align-items:center;justify-content:center;
-    padding:8px 4px 28px 4px;position:relative;
-    transition:all 0.4s cubic-bezier(0.4,0,0.2,1);
-    box-shadow:var(--shadow-subtle);
+    padding:6px 4px;position:relative;overflow:hidden;
+    transition:all 0.3s ease;box-shadow:var(--shadow-subtle);
 }
-.int-cell:hover { transform:translateY(-4px);box-shadow:var(--shadow-float); }
+.int-cell:hover { transform:translateY(-3px);box-shadow:var(--shadow-float); }
 .int-cell.active {
     background:linear-gradient(135deg,rgba(27,158,84,0.15),rgba(34,135,63,0.1));
-    border-color:var(--green);
-    box-shadow:var(--shadow-moderate),var(--shadow-glow-green);
+    border-color:var(--green);box-shadow:var(--shadow-moderate),var(--shadow-glow-green);
     animation:activeGlow 2s ease-in-out infinite;
 }
 @keyframes activeGlow {
@@ -548,16 +546,16 @@ html, body, .stApp {
     background:linear-gradient(135deg,rgba(229,167,32,0.15),rgba(196,122,10,0.1));
     border-color:var(--amber);box-shadow:var(--shadow-moderate),var(--shadow-glow-amber);
 }
-.int-dir { font-family:var(--fc);font-size:.65rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--ink3);margin-bottom:6px; }
-.int-count { font-family:var(--fm);font-size:2rem;font-weight:700;line-height:1;color:var(--ink); }
-.int-den { font-family:var(--fc);font-size:.6rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;margin-top:4px;padding:2px 8px;border-radius:var(--r-sm); }
+.int-dir { font-family:var(--fc);font-size:.56rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:2px;white-space:nowrap; }
+.int-count { font-family:var(--fm);font-size:1.4rem;font-weight:700;line-height:1;color:var(--ink); }
+.int-den { font-family:var(--fc);font-size:.5rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;margin-top:2px;padding:1px 5px;border-radius:var(--r-sm); }
 .int-den.Low   { color:var(--green);background:rgba(27,158,84,0.1); }
 .int-den.Medium{ color:var(--amber);background:rgba(229,167,32,0.1); }
 .int-den.High  { color:var(--red);background:rgba(200,40,30,0.1); }
-.int-signal { margin-top:6px;font-size:.72rem;font-weight:700;font-family:var(--fc);letter-spacing:.08em;padding:3px 10px;border-radius:var(--r-sm);display:inline-block; }
-.int-signal.green { color:#fff;background:var(--green);box-shadow:0 0 12px rgba(27,158,84,.4); }
-.int-signal.red   { color:#fff;background:var(--red);box-shadow:0 0 12px rgba(200,40,30,.4); }
-.int-signal.amber { color:var(--ink);background:var(--amber);box-shadow:0 0 12px rgba(229,167,32,.4); }
+.int-signal { margin-top:3px;font-size:.58rem;font-weight:700;font-family:var(--fc);letter-spacing:.04em;padding:2px 6px;border-radius:var(--r-sm);display:inline-block;white-space:nowrap; }
+.int-signal.green { color:#fff;background:var(--green); }
+.int-signal.red   { color:#fff;background:var(--red); }
+.int-signal.amber { color:var(--ink);background:var(--amber); }
 .int-center { background:var(--gradient-dark);border-radius:var(--r-md);display:flex;align-items:center;justify-content:center;font-size:1.4rem;box-shadow:var(--shadow-bold);border:2px solid rgba(255,255,255,0.1); }
 .int-road-h,.int-road-v { background:linear-gradient(135deg,var(--ink2),var(--ink));border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;box-shadow:inset 0 2px 4px rgba(0,0,0,0.3); }
 
@@ -1144,45 +1142,52 @@ if active == "🎯  Live Monitor":
         elif gp == "NS":
             v_cls  = "green"
             v_txt  = "GREEN"
-            dirs   = "↕ North–South: GO"
-            msg    = "↔ East–West: STOP and wait"
-            go_txt = "🟢 ↑↓ North–South — GO"
-            st_txt = "🔴 ←→ East–West — STOP"
+            dirs   = "North–South: GO"
+            msg    = "East–West: STOP and wait"
+            go_txt = "🟢 North–South — GO"
+            st_txt = "🔴 East–West — STOP"
         else:
             v_cls  = "green"
             v_txt  = "GREEN"
-            dirs   = "↔ East–West: GO"
-            msg    = "↕ North–South: STOP and wait"
-            go_txt = "🟢 ←→ East–West — GO"
-            st_txt = "🔴 ↑↓ North–South — STOP"
+            dirs   = "East–West: GO"
+            msg    = "North–South: STOP and wait"
+            go_txt = "🟢 East–West — GO"
+            st_txt = "🔴 North–South — STOP"
 
         pct = (rem / max(dur, 1)) * 100
-        go_stop_html = f"""
-            <div style="margin-bottom:12px;display:flex;flex-direction:column;gap:6px;">
-                <div style="background:rgba(27,158,84,0.12);border:1px solid rgba(27,158,84,0.3);
-                            border-radius:8px;padding:8px 12px;font-family:var(--fc);
-                            font-size:.82rem;font-weight:700;color:#1b9e54;letter-spacing:.05em;">{go_txt}</div>
-                <div style="background:rgba(200,40,30,0.08);border:1px solid rgba(200,40,30,0.2);
-                            border-radius:8px;padding:8px 12px;font-family:var(--fc);
-                            font-size:.82rem;font-weight:700;color:#c8281e;letter-spacing:.05em;">{st_txt}</div>
-            </div>""" if go_txt else ""
 
-        verdict_ph.markdown(f"""
-        <div class="signal-board {v_cls}">
-            <div class="signal-pair-label">Active Signal Verdict</div>
-            <div class="signal-verdict-text {v_cls}">{v_txt}</div>
-            <div class="signal-pair-dirs">{dirs}</div>
-            <div class="signal-msg">{msg}</div>
-            {go_stop_html}
-            <div class="timer-display">
-                <div class="timer-big">{rem:02d}</div>
-                <div class="timer-unit">sec</div>
-            </div>
-            <div class="timer-track">
-                <div class="timer-fill {v_cls}" style="width:{pct:.1f}%"></div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        # Build go/stop HTML separately to avoid nested f-string issues
+        if go_txt:
+            go_stop_html = (
+                '<div style="margin-bottom:12px;">'
+                '<div style="background:rgba(27,158,84,0.12);border:1px solid rgba(27,158,84,0.3);'
+                'border-radius:8px;padding:8px 12px;margin-bottom:6px;'
+                'font-size:.82rem;font-weight:700;color:#1b9e54;">' + go_txt + '</div>'
+                '<div style="background:rgba(200,40,30,0.08);border:1px solid rgba(200,40,30,0.2);'
+                'border-radius:8px;padding:8px 12px;'
+                'font-size:.82rem;font-weight:700;color:#c8281e;">' + st_txt + '</div>'
+                '</div>'
+            )
+        else:
+            go_stop_html = ""
+
+        verdict_ph.markdown(
+            '<div class="signal-board ' + v_cls + '">'
+            '<div class="signal-pair-label">Active Signal Verdict</div>'
+            '<div class="signal-verdict-text ' + v_cls + '">' + v_txt + '</div>'
+            '<div class="signal-pair-dirs">' + dirs + '</div>'
+            '<div class="signal-msg">' + msg + '</div>'
+            + go_stop_html +
+            '<div class="timer-display">'
+            '<div class="timer-big">' + f"{rem:02d}" + '</div>'
+            '<div class="timer-unit">sec</div>'
+            '</div>'
+            '<div class="timer-track">'
+            '<div class="timer-fill ' + v_cls + '" style="width:' + f"{pct:.1f}" + '%"></div>'
+            '</div>'
+            '</div>',
+            unsafe_allow_html=True
+        )
 
     def render_map(nc, sc, ec, wc, gp, phase):
         nd = get_density(nc)
