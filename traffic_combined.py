@@ -1022,7 +1022,7 @@ if active == "🎯  Live Monitor":
                 </div>
                 <div class="summary-item">
                     <div class="summary-num">{st.session_state.session_vehicles}</div>
-                    <div class="summary-lbl">Vehicles Detected</div>
+                    <div class="summary-lbl">Peak Vehicles (single frame)</div>
                 </div>
                 <div class="summary-item">
                     <div class="summary-num">{st.session_state.session_high}</div>
@@ -1355,6 +1355,10 @@ if active == "🎯  Live Monitor":
             st.session_state.running = False
             st.stop()
 
+        # Pre-load model with spinner so user knows it's working
+        with st.spinner("⏳ Loading AI model... (first run may take 30 seconds)"):
+            load_yolo()
+
         fn = 0
         try:
             while st.session_state.running:
@@ -1390,8 +1394,11 @@ if active == "🎯  Live Monitor":
                 st.session_state.last_vtypes = vtypes
                 st.session_state.last_frame  = ann.copy()
 
-                # Accumulate total vehicles detected across all frames
-                st.session_state.session_vehicles += total
+                # Peak vehicles = max seen in any single frame
+                # This is meaningful — "at peak there were X vehicles"
+                # NOT a cumulative sum which gives unrealistic numbers
+                st.session_state.session_vehicles = max(
+                    st.session_state.session_vehicles, total)
                 if oden == "High":
                     st.session_state.session_high += 1
 
