@@ -1334,10 +1334,18 @@ if active == "🎯  Live Monitor":
     # ── VIDEO LOOP ────────────────────────────────────────────────────
     if st.session_state.running and input_mode == "📁 Upload Video":
 
+        # Save uploaded file to disk once and store path in session state
+        # This prevents losing the file across iterations
         if uploaded_file is not None:
-            tf = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
-            tf.write(uploaded_file.read())
-            vpath = tf.name
+            src_name = uploaded_file.name
+            if st.session_state.get("vpath_src") != src_name:
+                tf = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
+                tf.write(uploaded_file.read())
+                tf.flush()
+                tf.close()
+                st.session_state["vpath"] = tf.name
+                st.session_state["vpath_src"] = src_name
+            vpath = st.session_state["vpath"]
         else:
             vpath = default_video
 
@@ -1348,21 +1356,18 @@ if active == "🎯  Live Monitor":
             st.stop()
 
         fn = 0
-        loop_count = 0
         try:
             while st.session_state.running:
                 # Skip frames for speed
                 for _ in range(skip_frames - 1):
                     cap.read()
                 ret, frame = cap.read()
+
+                # Video ended — stop cleanly (no loop to avoid inflated counts)
                 if not ret:
-                    loop_count += 1
-                    if loop_count >= 2:
-                        st.session_state.running = False
-                        st.session_state.show_summary = True
-                        break
-                    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-                    continue
+                    st.session_state.running = False
+                    st.session_state.show_summary = True
+                    break
 
                 fn += 1
                 st.session_state.total_frames += 1
@@ -1372,7 +1377,7 @@ if active == "🎯  Live Monitor":
                  gp, gden, dur, oden,
                  avg_conf, vtypes) = detect_4way(frame, conf_val)
 
-                # Save current frame state (per-frame, not cumulative)
+                # Save per-frame state
                 st.session_state.last_nc     = nc
                 st.session_state.last_sc     = sc
                 st.session_state.last_ec     = ec
@@ -1385,9 +1390,8 @@ if active == "🎯  Live Monitor":
                 st.session_state.last_vtypes = vtypes
                 st.session_state.last_frame  = ann.copy()
 
-                # session_vehicles = max seen in any frame (not sum)
-                st.session_state.session_vehicles = max(
-                    st.session_state.session_vehicles, total)
+                # Accumulate total vehicles detected across all frames
+                st.session_state.session_vehicles += total
                 if oden == "High":
                     st.session_state.session_high += 1
 
@@ -1396,7 +1400,7 @@ if active == "🎯  Live Monitor":
 
                 update_timer(gp, dur)
 
-                # Render — use frame_ph to avoid Streamlit rerun flicker
+                # Render
                 frame_ph.image(cv2.cvtColor(ann, cv2.COLOR_BGR2RGB),
                                channels="RGB", use_container_width=True)
                 if snap_btn and st.session_state.last_frame is not None:
@@ -1416,8 +1420,7 @@ if active == "🎯  Live Monitor":
                     publish_iot(nc, sc, ec, wc, total, gp,
                                 st.session_state.sig_phase, dur, oden)
 
-                # Frame pacing — balance smoothness vs CPU
-                time.sleep(0.02)
+                time.sleep(0.03)
         finally:
             cap.release()
 
